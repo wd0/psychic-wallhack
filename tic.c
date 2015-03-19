@@ -2,11 +2,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
-#include <math.h>
 #include "types.h"
 #include "io.h"
+#include "config.h"
 
-#define BOARD_HEIGHT 3 /* Replaced in the makefile */
 enum { BOARD_H = BOARD_HEIGHT, BOARD_W = BOARD_H };
 enum { BOARD_SIZE = BOARD_H * BOARD_W }; 
 
