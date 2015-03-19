@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <ctype.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <sys/time.h>
 #include "types.h"
 #include "tic.h"
+
+static const char *const BOARD_SEP = " | ";
+static const char NOTHING_C = ' ';
 
 static int
 validate_coord(enum board *b, size_t board_size, int coord) {
@@ -25,7 +29,8 @@ ask_coord(enum board *b, size_t board_size) {
     int rc;
 get_coord:
     puts("Where do you want to mark?");
-    fgets(buf, bufsize, stdin);
+    if (fgets(buf, bufsize, stdin) == NULL)
+        exit(DRAW);
     coord = atoi(buf) - 1;
     if ((rc = validate_coord(b, board_size, coord)) != 0) {
         if (rc == 1) 
@@ -43,22 +48,31 @@ get_coord:
 
 static bool
 invalid_mark(char m) {
-    return !(m == XMARK || m == OMARK);
+    return !(toupper(m) == XMARK || toupper(m) == OMARK);
 }
 
 enum board
 ask_mark(void) {
-    char mark;
+    int mark;
+    int c;
 get_mark:
-    puts("Which mark?");
+    printf("Which mark? (%c | %c)\n", XMARK, OMARK);
     mark = getchar();
-    (void)getchar();
+    if ((c = getchar()) != '\n' && c != EOF)
+        ungetc(c, stdin);
     if (invalid_mark(mark)) {
         printf("Surely you can't mean to put ``%c'' on the board.\n", mark);
         goto get_mark;
     }
-    return mark;
+    return toupper(mark);
 }
+
+unsigned
+millisleep(unsigned milliseconds) {
+    struct timeval t = { .tv_sec = 0, .tv_usec = milliseconds * 1e3 };
+    select(0, NULL, NULL, NULL, &t);
+    return milliseconds;
+} 
 
 unsigned
 bot_ask_coord(enum board *b, size_t board_size) {
@@ -67,45 +81,50 @@ bot_ask_coord(enum board *b, size_t board_size) {
     do {
         coord = rand() % board_size;
     } while (occupied(b, coord));
-    sleep(1);
+    millisleep(400);
     printf("%u\n", coord + 1); 
     return coord;
 }
 
 void
-show_winner(enum board *b, size_t board_size, bool human_first) {
-    enum board winner_mark = get_winner(b, board_size);
-    if (winner_mark == XMARK) {
-        if (human_first)
-            printf("You won with %c!\n", XMARK);
-        else
-            printf("You lost with %c!\n", OMARK);
-    } 
-    if (winner_mark == OMARK) {
-        if (human_first)
-            printf("You lost with %c!\n", XMARK);
-        else
-            printf("You won with %c!\n", OMARK);
-    } 
-    if (winner_mark == NOTHING) 
-        printf("Draw!\n");
+show_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark) {
+    int winner = get_winner(b, nrows, ncols, human_mark);
+    if (winner == DRAW)
+        printf("It's a draw.\n");
+    else if (winner == WIN)
+        printf("You won with %c!\n", human_mark);
+    else if (winner == LOSE)
+        printf("You lost with %c!\n", human_mark);
+    else
+        assert(false);
 }
 
 void
 show_board(enum board *b, size_t nrows, size_t ncols) {
-    const char *sep = " | ";
-    const char nothing = ' ';
+    const char *sep = BOARD_SEP;
+    const unsigned char nothing = NOTHING_C;
     unsigned row, col;
     putchar('\n');
     for (row = 0; row < nrows; ++row) { 
         for (col = 0; col < ncols; ++col) {
             unsigned coord = trans(row, col, nrows);
-            char c;
-            if (b[coord] == NOTHING)
-                c = nothing;
-            else
-                c = b[coord];
-            putchar(c);
+            putchar(b[coord] == NOTHING? nothing : b[coord]);
+            if (col != ncols - 1)
+                printf("%s", sep);
+        }
+        putchar('\n');
+    }
+    putchar('\n');
+}
+
+void
+show_helper_board(size_t nrows, size_t ncols) {
+    const char *sep = BOARD_SEP;
+    unsigned row, col;
+    putchar('\n');
+    for (row = 0; row < nrows; ++row) { 
+        for (col = 0; col < ncols; ++col) {
+            printf("%d", trans(row, col, nrows) + 1);
             if (col != ncols - 1)
                 printf("%s", sep);
         }

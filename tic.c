@@ -1,12 +1,14 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
 #include <math.h>
 #include "types.h"
 #include "io.h"
 
-enum { BOARD_H = 3, BOARD_W = 3};
-enum { BOARD_SIZE = BOARD_H * BOARD_W }; /* Must be a perfect square */
+#define BOARD_HEIGHT 3 /* Replaced in the makefile */
+enum { BOARD_H = BOARD_HEIGHT, BOARD_W = BOARD_H };
+enum { BOARD_SIZE = BOARD_H * BOARD_W }; 
 
 unsigned
 trans(unsigned row, unsigned col, size_t board_height) {
@@ -66,8 +68,7 @@ check_verticals(enum board *b, size_t nrows, size_t ncols) {
 
 static enum board
 check_diagnonals(enum board *b, size_t nrows, size_t ncols) {
-    unsigned row;
-    int col;
+    unsigned row, col;
     enum board mark;
     mark = b[trans(0, 0, nrows)];
     for (row = 1, col = 1; row < nrows && col < ncols; ++row, ++col) 
@@ -77,59 +78,74 @@ check_diagnonals(enum board *b, size_t nrows, size_t ncols) {
         return mark;
 
     mark = b[trans(0, ncols - 1, nrows)];
-    for (row = 0, col = ncols - 1; row < nrows && col >= 0; ++row, --col) 
+    for (row = 1, col = ncols - 2; row < nrows && col > 0; ++row, --col) 
         if (mark != b[trans(row, col, nrows)]) 
             break;
-    if (row == nrows && col == -1)
+    if (row == nrows - 1 && col == 0 && mark == b[trans(row, 0, nrows)])
         return mark;
     return NOTHING;
 }
 
+static int
+get_winner_mark(enum board *b, size_t nrows, size_t ncols) {
+    enum board winner_mark = 0;
+    winner_mark |= check_horizontals(b, nrows, ncols);
+    winner_mark |= check_verticals(b, nrows, ncols);
+    winner_mark |= check_diagnonals(b, nrows, ncols); 
+    return winner_mark; 
+}
 
 int
-get_winner(enum board *b, size_t board_size) {
-    enum board winner = 0;
-    unsigned nrows = sqrt(board_size);
-    unsigned ncols = nrows;
-    winner |= check_horizontals(b, nrows, ncols);
-    winner |= check_verticals(b, nrows, ncols);
-    winner |= check_diagnonals(b, nrows, ncols); 
-    return winner == NOTHING? 0 : winner;
+get_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark) {
+    enum board winner_mark = get_winner_mark(b, nrows, ncols);
+    if (winner_mark == XMARK) {
+        if (human_mark == winner_mark) 
+            return WIN;
+        else
+            return LOSE;
+    }
+    if (winner_mark == OMARK) {
+       if (human_mark == winner_mark)
+          return WIN;
+      else
+         return LOSE;
+    } 
+    return DRAW;
 }
 
 static bool
-game_over(enum board *b, size_t board_size) {
-    return get_winner(b, board_size) != 0 || board_full(b, board_size);
+game_over(enum board *b, size_t nrows, size_t ncols) {
+    return get_winner_mark(b, nrows, ncols) != NOTHING || board_full(b, nrows * ncols);
 }
 
 /* The player who uses 'X' always goes first. */
 static int
-tic(enum board *b, size_t nrows, size_t ncols, struct options opts) {
+tic(enum board *b, size_t nrows, size_t ncols) {
     const size_t board_size = nrows * ncols;
-    enum board mark = ask_mark();
-    enum board bot_mark = mark == XMARK? OMARK : XMARK;
-    bool human_first = mark == XMARK;
+    enum board human_mark = ask_mark();
+    enum board bot_mark = human_mark == XMARK? OMARK : XMARK;
+    bool human_first = human_mark == XMARK;
     srand(time(NULL));
+    show_helper_board(nrows, ncols);
     for (;;) { 
         unsigned coord;
         coord = human_first? ask_coord(b, board_size) : bot_ask_coord(b, board_size);
-        update_board(b, coord, human_first? mark : bot_mark);
+        update_board(b, coord, human_first? human_mark : bot_mark);
         show_board(b, nrows, ncols);
-        if (game_over(b, board_size))
+        if (game_over(b, nrows, ncols))
             break;
         coord = human_first? bot_ask_coord(b, board_size) : ask_coord(b, board_size);
-        update_board(b, coord, human_first? bot_mark : mark);
+        update_board(b, coord, human_first? bot_mark : human_mark);
         show_board(b, nrows, ncols);
-        if (game_over(b, board_size))
+        if (game_over(b, nrows, ncols))
             break;
     }
-    show_winner(b, board_size, human_first);
-    return 0;
+    show_winner(b, nrows, ncols, human_mark);
+    return get_winner(b, nrows, ncols, human_mark);
 }
 
 int
-main(int argc, char **argv) {
-    enum board board[BOARD_SIZE] = { NOTHING };
-    struct options opts = { 0 };
-    return tic(board, BOARD_H, BOARD_W, opts);
+main(void) {
+    enum board b[BOARD_SIZE] = { NOTHING };
+    return tic(b, BOARD_H, BOARD_W);
 }
