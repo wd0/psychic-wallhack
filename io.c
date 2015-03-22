@@ -86,8 +86,8 @@ bot_ask_coord(enum board *b, size_t board_size) {
 }
 
 void
-show_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark) {
-    int winner = get_winner(b, nrows, ncols, human_mark);
+show_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark, enum board bot_mark) {
+    int winner = get_winner(b, nrows, ncols, human_mark, bot_mark);
     if (winner == DRAW)
         printf("It's a draw.\n");
     else if (winner == WIN)

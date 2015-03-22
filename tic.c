@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <time.h>
 #include "types.h"
@@ -7,7 +8,6 @@
 #include "config.h"
 
 enum { BOARD_H = BOARD_HEIGHT, BOARD_W = BOARD_H };
-enum { BOARD_SIZE = BOARD_H * BOARD_W }; 
 
 unsigned
 trans(unsigned row, unsigned col, size_t board_height) {
@@ -16,9 +16,7 @@ trans(unsigned row, unsigned col, size_t board_height) {
 
 bool
 occupied(enum board *b, unsigned coord) {
-    if (b[coord] == NOTHING)
-        return false;
-    return true;
+    return b[coord] != NOTHING;
 }
 
 static bool
@@ -95,20 +93,12 @@ get_winner_mark(enum board *b, size_t nrows, size_t ncols) {
 }
 
 int
-get_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark) {
+get_winner(enum board *b, size_t nrows, size_t ncols, enum board human_mark, enum board bot_mark) {
     enum board winner_mark = get_winner_mark(b, nrows, ncols);
-    if (winner_mark == XMARK) {
-        if (human_mark == winner_mark) 
-            return WIN;
-        else
-            return LOSE;
-    }
-    if (winner_mark == OMARK) {
-       if (human_mark == winner_mark)
-          return WIN;
-      else
-         return LOSE;
-    } 
+    if (winner_mark == human_mark)
+        return WIN;
+    else if (winner_mark == bot_mark)
+        return LOSE;
     return DRAW;
 }
 
@@ -139,12 +129,12 @@ tic(enum board *b, size_t nrows, size_t ncols) {
         if (game_over(b, nrows, ncols))
             break;
     }
-    show_winner(b, nrows, ncols, human_mark);
-    return get_winner(b, nrows, ncols, human_mark);
+    show_winner(b, nrows, ncols, human_mark, bot_mark);
+    return get_winner(b, nrows, ncols, human_mark, bot_mark);
 }
 
 int
 main(void) {
-    enum board b[BOARD_SIZE] = { NOTHING };
+    enum board b[BOARD_H * BOARD_W] = { NOTHING };
     return tic(b, BOARD_H, BOARD_W);
 }
